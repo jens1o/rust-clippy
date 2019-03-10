@@ -170,44 +170,43 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for StringLitAsBytes {
             if path.ident.name == "as_bytes" {
                 if let ExprKind::Lit(ref lit) = args[0].node {
                     if let LitKind::Str(ref lit_content, style) = lit.node {
-                        let callsite = snippet(cx, args[0].span.source_callsite(), r#""foo""#);
-                        let expanded = if let StrStyle::Raw(n) = style {
-                            let term = (0..n).map(|_| '#').collect::<String>();
-                            format!("r{0}\"{1}\"{0}", term, lit_content.as_str())
-                        } else {
-                            format!("\"{}\"", lit_content.as_str())
-                        };
-                        let mut applicability = Applicability::MachineApplicable;
-                        if callsite.starts_with("include_str!") {
-                            span_lint_and_sugg(
-                                cx,
-                                STRING_LIT_AS_BYTES,
-                                e.span,
-                                "calling `as_bytes()` on `include_str!(..)`",
-                                "consider using `include_bytes!(..)` instead",
-                                snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability).replacen(
-                                    "include_str",
-                                    "include_bytes",
-                                    1,
-                                ),
-                                applicability,
-                            );
-                        } else if callsite == expanded
-                            && lit_content.as_str().chars().all(|c| c.is_ascii())
-                            && !in_macro(args[0].span)
-                        {
-                            span_lint_and_sugg(
-                                cx,
-                                STRING_LIT_AS_BYTES,
-                                e.span,
-                                "calling `as_bytes()` on a string literal",
-                                "consider using a byte string literal instead",
-                                format!(
-                                    "b{}",
+                        if lit_content.as_str().len() <= 32 {
+                            let callsite = snippet(cx, args[0].span.source_callsite(), r#""foo""#);
+                            let expanded = if let StrStyle::Raw(n) = style {
+                                let term = (0..n).map(|_| '#').collect::<String>();
+                                format!("r{0}\"{1}\"{0}", term, lit_content.as_str())
+                            } else {
+                                format!("\"{}\"", lit_content.as_str())
+                            };
+                            let mut applicability = Applicability::MachineApplicable;
+                            if callsite.starts_with("include_str!") {
+                                span_lint_and_sugg(
+                                    cx,
+                                    STRING_LIT_AS_BYTES,
+                                    e.span,
+                                    "calling `as_bytes()` on `include_str!(..)`",
+                                    "consider using `include_bytes!(..)` instead",
                                     snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability)
-                                ),
-                                applicability,
-                            );
+                                        .replacen("include_str", "include_bytes", 1),
+                                    applicability,
+                                );
+                            } else if callsite == expanded
+                                && lit_content.as_str().chars().all(|c| c.is_ascii())
+                                && !in_macro(args[0].span)
+                            {
+                                span_lint_and_sugg(
+                                    cx,
+                                    STRING_LIT_AS_BYTES,
+                                    e.span,
+                                    "calling `as_bytes()` on a string literal",
+                                    "consider using a byte string literal instead",
+                                    format!(
+                                        "b{}",
+                                        snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability)
+                                    ),
+                                    applicability,
+                                );
+                            }
                         }
                     }
                 }
